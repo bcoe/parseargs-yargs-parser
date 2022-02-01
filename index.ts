@@ -11,10 +11,54 @@ interface Parser {
   looksLikeNumber(x: null | undefined | number | string): boolean;
 }
 
+// take an un-split argv string and tokenize it.
+export function tokenizeArgString (argString: string | any[]): string[] {
+  if (Array.isArray(argString)) {
+    return argString.map(e => typeof e !== 'string' ? e + '' : e)
+  }
+
+  argString = argString.trim()
+
+  let i = 0
+  let prevC: string | null = null
+  let c: string | null = null
+  let opening: string | null = null
+  const args: string[] = []
+
+  for (let ii = 0; ii < argString.length; ii++) {
+    prevC = c
+    c = argString.charAt(ii)
+
+    // split on spaces unless we're in quotes.
+    if (c === ' ' && !opening) {
+      if (!(prevC === ' ')) {
+        i++
+      }
+      continue
+    }
+
+    // don't split the string if we're in matching
+    // opening or closing single and double quotes.
+    if (c === opening) {
+      opening = null
+    } else if ((c === "'" || c === '"') && !opening) {
+      opening = c
+    }
+
+    if (!args[i]) args[i] = ''
+    args[i] += c
+  }
+
+  return args
+}
+
 const yargsParser: Parser = function Parser(
   args: ArgsInput,
   opts?: Partial<Options>
 ): Arguments {
+  if (typeof args === 'string') {
+    args = tokenizeArgString(args);
+  }
   const result = yargsParser.detailed(args.slice(), opts);
   return result.argv;
 };
@@ -22,9 +66,13 @@ yargsParser.detailed = function (
   args: ArgsInput,
   opts?: Partial<Options>
 ): DetailedArguments {
+  if (typeof args === 'string') {
+    args = tokenizeArgString(args);
+  }
   const parsed = parseArgs(args as string[]);
+  console.info(parsed);
   return {
-    argv: Object.assign({_: [], $0: ''}, parsed.flags),
+    argv: Object.assign({_: parsed.positionals, $0: ''}, parsed.flags),
     error: null,
     aliases: {},
     newAliases: {},
