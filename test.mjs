@@ -1,5 +1,5 @@
 import {beforeEach, describe, it} from 'mocha';
-import parser from './build/index.js';
+import parser from './index.mjs';
 
 import * as chai from 'chai';
 chai.should()
@@ -51,33 +51,43 @@ describe('yargs-parser', function () {
     parse.should.have.property('_').with.length(0)
   })
 
-  /*
   it('should set the value of a single long option to the next supplied value, even if the value is empty', function () {
-    const parse = parser(['--pow', ''])
+    const parse = parser(['--pow', ''], {
+      withValue: ['pow']
+    })
     parse.should.have.property('pow', '')
     parse.should.have.property('_').with.length(0)
   })
 
+
   it('should set the value of a single long option if an = was used', function () {
-    const parse = parser(['--pow=xixxle'])
+    const parse = parser(['--pow=xixxle'], {
+      withValue: ['pow']
+    })
     parse.should.have.property('pow', 'xixxle')
     parse.should.have.property('_').with.length(0)
   })
 
+
   it('should set the value of multiple long options to the next supplied values relative to each', function () {
-    const parse = parser(['--host', 'localhost', '--port', '555'])
+    const parse = parser(['--host', 'localhost', '--port', '555'], {
+      withValue: ['host', 'port']
+    })
     parse.should.have.property('host', 'localhost')
     parse.should.have.property('port', 555)
     parse.should.have.property('_').with.length(0)
   })
 
   it('should set the value of multiple long options if = signs were used', function () {
-    const parse = parser(['--host=localhost', '--port=555'])
+    const parse = parser(['--host=localhost', '--port=555'], {
+      withValue: ['host', 'port']
+    })
     parse.should.have.property('host', 'localhost')
     parse.should.have.property('port', 555)
     parse.should.have.property('_').with.length(0)
   })
 
+/*
   it('should still set values appropriately if a mix of short, long, and grouped short options are specified', function () {
     const parse = parser(['-h', 'localhost', '-fp', '555', 'script.js'])
     parse.should.have.property('f', true)
