@@ -10,12 +10,12 @@ chai.should()
 // const path = require('path')
 
 describe('yargs-parser', function () {
-  /*it('should parse a "short boolean"', function () {
+  it('should parse a "short boolean"', function () {
     const parse = parser(['-b'])
     parse.should.not.have.property('--')
     parse.should.have.property('b').to.be.ok.and.be.a('boolean')
     parse.should.have.property('_').with.length(0)
-  })*/
+  })
 
   it('should parse a "long boolean"', function () {
     const parse = parser('--bool')
@@ -30,15 +30,16 @@ describe('yargs-parser', function () {
     parse.should.have.property('_').and.deep.equal(['foo', 'bar', 'baz'])
   })
 
-  // Proposing that '-' is always short opts.
-  /*it('should set the value of the final option in a group to the next supplied value', function () {
-    const parse = parser(['-cats', 'meow'])
+  it('should set the value of the final option in a group to the next supplied value', function () {
+    const parse = parser(['-cats', 'meow'], {
+      withValue: ['s']
+    })
     parse.should.have.property('c', true)
     parse.should.have.property('a', true)
     parse.should.have.property('t', true)
     parse.should.have.property('s', 'meow')
     parse.should.have.property('_').with.length(0)
-  })*/
+  })
 
   it('should set the value of a single long option to the next supplied value', function () {
     // original:
@@ -87,15 +88,17 @@ describe('yargs-parser', function () {
     parse.should.have.property('_').with.length(0)
   })
 
-/*
   it('should still set values appropriately if a mix of short, long, and grouped short options are specified', function () {
-    const parse = parser(['-h', 'localhost', '-fp', '555', 'script.js'])
+    const parse = parser(['-h', 'localhost', '-fp', '555', 'script.js'], {
+      withValue: ['p', 'h']
+    })
     parse.should.have.property('f', true)
     parse.should.have.property('p', 555)
     parse.should.have.property('h', 'localhost')
     parse.should.have.property('_').and.deep.equal(['script.js'])
   })
 
+  /*
   it('should still set values appropriately if a mix of short and long options are specified', function () {
     const parse = parser(['-h', 'localhost', '--port', '555'])
     parse.should.have.property('h', 'localhost')
