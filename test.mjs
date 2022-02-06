@@ -98,9 +98,11 @@ describe('yargs-parser', function () {
     parse.should.have.property('_').and.deep.equal(['script.js'])
   })
 
-  /*
+  
   it('should still set values appropriately if a mix of short and long options are specified', function () {
-    const parse = parser(['-h', 'localhost', '--port', '555'])
+    const parse = parser(['-h', 'localhost', '--port', '555'], {
+      withValue: ['h', 'port']
+    })
     parse.should.have.property('h', 'localhost')
     parse.should.have.property('port', 555)
     parse.should.have.property('_').with.length(0)
@@ -122,7 +124,9 @@ describe('yargs-parser', function () {
     ], {
       configuration: {
         'populate--': false
-      }
+      },
+      withValue: ['name', 'h', 'key', 's'],
+      multiples: ['multi']
     })
     parse.should.have.property('c', true)
     parse.should.have.property('a', true)
@@ -146,7 +150,9 @@ describe('yargs-parser', function () {
       '-w', '10f',
       '--hex', '0xdeadbeef',
       '789'
-    ])
+    ], {
+      withValue: ['x', 'y', 'z', 'w', 'hex']
+    })
     argv.should.have.property('x', 1234).and.be.a('number')
     argv.should.have.property('y', 5.67).and.be.a('number')
     argv.should.have.property('z', 1e7).and.be.a('number')
@@ -157,7 +163,7 @@ describe('yargs-parser', function () {
   })
 
   // addresses: https://github.com/yargs/yargs-parser/issues/33
-  it('should handle parsing negative #s', function () {
+  it.only('should handle parsing negative #s', function () {
     const argv = parser([
       '-33', '-177', '33',
       '--n1', '-33',
@@ -165,23 +171,27 @@ describe('yargs-parser', function () {
       '--n2=-55',
       '--foo.bar', '-33',
       '-o=-55',
-      '--bounds', '-180', '99', '-180', '90',
-      '--other', '-99', '-220'
+      // Note: one major change in this library from yargs-parser
+      // is the dropping of greedy arrays and nargs.*/
+      '--bounds', '-180', '--bounds=99', '--bounds', '-180', '--bounds', '90',
+      '--other', '-99', '--other', '-220'
     ], {
-      array: 'bounds',
-      narg: { other: 2 }
+      multiples: ['bounds', 'other'],
+      withValue: ['n', 'n1', 'n2', 'foo.bar']
     })
-
+    console.info(argv);
     argv._.should.deep.equal([-33, -177, 33])
     argv.n1.should.equal(-33)
     argv.n.should.equal(-44)
     argv.n2.should.equal(-55)
-    argv.foo.bar.should.equal(-33)
+    // TODO implement dot properties:
+    // argv.foo.bar.should.equal(-33)
     argv.o.should.equal(-55)
     argv.bounds.should.deep.equal([-180, 99, -180, 90])
     argv.other.should.deep.equal([-99, -220])
   })
 
+  /*
   it('should handle negative (and positive) numbers with decimal places, with or without a leading 0', function () {
     const argv = parser([
       '-0.1', '-1.1', '-.5', '-.1', '.1', '.5',
@@ -1927,211 +1937,6 @@ describe('yargs-parser', function () {
     })
   })
 
-  describe('nargs', function () {
-    it('should allow the number of arguments following a key to be specified', function () {
-      const result = parser(['--foo', 'apple', 'bar'], {
-        narg: {
-          foo: 2
-        }
-      })
-
-      Array.isArray(result.foo).should.equal(true)
-      result.foo[0].should.equal('apple')
-      result.foo[1].should.equal('bar')
-    })
-
-    it('should raise an exception if -f== format is used for a key with no expected argument', function () {
-      const argv = parser.detailed('-f=apple', {
-        narg: {
-          f: 0
-        }
-      })
-      argv.error.message.should.equal('Argument unexpected for: f')
-    })
-
-    it('should raise an exception if --bar== format is used for a key with no expected argument', function () {
-      const argv = parser.detailed('--bar=apple', {
-        narg: {
-          bar: 0
-        }
-      })
-      argv.error.message.should.equal('Argument unexpected for: bar')
-    })
-
-    it('should raise an exception if there are not enough arguments following key', function () {
-      const argv = parser.detailed('--foo apple', {
-        narg: {
-          foo: 2
-        }
-      })
-      argv.error.message.should.equal('Not enough arguments following: foo')
-    })
-
-    it('nargs is applied to aliases', function () {
-      const result = parser(['--bar', 'apple', 'bar'], {
-        narg: {
-          foo: 2
-        },
-        alias: {
-          foo: 'bar'
-        }
-      })
-      Array.isArray(result.foo).should.equal(true)
-      result.foo[0].should.equal('apple')
-      result.foo[1].should.equal('bar')
-    })
-
-    it('should apply nargs to flag arguments', function () {
-      const result = parser(['-f', 'apple', 'bar', 'blerg'], {
-        narg: {
-          f: 2
-        }
-      })
-
-      result.f[0].should.equal('apple')
-      result.f[1].should.equal('bar')
-      result._[0].should.equal('blerg')
-    })
-
-    it('should support nargs for -f= and --bar= format arguments', function () {
-      const result = parser(['-f=apple', 'bar', 'blerg', '--bar=monkey', 'washing', 'cat'], {
-        narg: {
-          f: 2,
-          bar: 2
-        }
-      })
-
-      result.f[0].should.equal('apple')
-      result.f[1].should.equal('bar')
-      result._[0].should.equal('blerg')
-
-      result.bar[0].should.equal('monkey')
-      result.bar[1].should.equal('washing')
-      result._[1].should.equal('cat')
-    })
-
-    it('should support nargs for -f= and --bar= format arguments with dashed values', function () {
-      const result = parser(['-f=--apple', 'bar', 'blerg', '--bar=-monkey', 'washing', 'cat'], {
-        narg: {
-          f: 2,
-          bar: 2
-        }
-      })
-
-      result.f[0].should.equal('--apple')
-      result.f[1].should.equal('bar')
-      result._[0].should.equal('blerg')
-
-      result.bar[0].should.equal('-monkey')
-      result.bar[1].should.equal('washing')
-      result._[1].should.equal('cat')
-    })
-
-    it('should not modify the input args if an = was used', function () {
-      const expected = ['-f=apple', 'bar', 'blerg', '--bar=monkey', 'washing', 'cat']
-      const args = expected.slice()
-      parser(args, {
-        narg: {
-          f: 2,
-          bar: 2
-        }
-      })
-      args.should.deep.equal(expected)
-
-      parser.detailed(args, {
-        narg: {
-          f: 2,
-          bar: 2
-        }
-      })
-      args.should.deep.equal(expected)
-    })
-
-    it('allows multiple nargs to be set at the same time', function () {
-      const result = parser(['--foo', 'apple', 'bar', '--bar', 'banana', '-f'], {
-        narg: {
-          foo: 2,
-          bar: 1
-        }
-      })
-
-      Array.isArray(result.foo).should.equal(true)
-      result.foo[0].should.equal('apple')
-      result.foo[1].should.equal('bar')
-      result.bar.should.equal('banana')
-      result.f.should.equal(true)
-    })
-
-    // see: https://github.com/yargs/yargs-parser/pull/13
-    it('should support nargs for --foo= format when the key is a number', function () {
-      const result = parser(['--1=a', 'b'], {
-        narg: {
-          1: 2
-        }
-      })
-
-      Array.isArray(result['1']).should.equal(true)
-      result['1'][0].should.equal('a')
-      result['1'][1].should.equal('b')
-    })
-
-    it('should not treat flag arguments as satisfying narg requirements', function () {
-      const result = parser.detailed(['--foo', '--bar', '99'], {
-        narg: {
-          foo: 1
-        }
-      })
-
-      result.argv.bar.should.equal(99)
-      result.error.message.should.equal('Not enough arguments following: foo')
-    })
-
-    // See: https://github.com/yargs/yargs-parser/issues/232
-    it('should treat flag arguments as satisfying narg requirements, if nargs-eats-options=true', function () {
-      const result = parser.detailed(['--foo', '--bar', '99', '--batman', 'robin'], {
-        narg: {
-          foo: 2
-        },
-        configuration: {
-          'nargs-eats-options': true
-        }
-      })
-
-      result.argv.foo.should.eql(['--bar', 99])
-      result.argv.batman.should.eql('robin')
-    })
-
-    it('should not consume more than configured nargs', function () {
-      const result = parser(['--foo', 'a', 'b'], {
-        narg: {
-          foo: 1
-        }
-      })
-
-      result.foo.should.eql('a')
-    })
-
-    it('should ignore undefined configured nargs', function () {
-      const result = parser(['--foo', 'a', 'b'], {
-        narg: {
-          foo: undefined
-        }
-      })
-
-      result.foo.should.eql('a')
-    })
-
-    it('should default to 1 if configured narg is NaN', function () {
-      const result = parser(['--foo', 'a', 'b'], {
-        narg: {
-          foo: NaN
-        }
-      })
-
-      result.foo.should.eql('a')
-    })
-  })
-
   describe('env vars', function () {
     it('should apply all env vars if prefix is empty', function () {
       process.env.ONE_FISH = 'twofish'
@@ -3819,16 +3624,6 @@ describe('yargs-parser', function () {
       argv.toString.should.equal('method name')
     })
 
-    it('handles "nargs" colliding with prototype', () => {
-      const parse = parser(['--toString', 'apple', 'banana', 'batman', 'robin'], {
-        narg: {
-          toString: 3
-        }
-      })
-      parse.toString.should.eql(['apple', 'banana', 'batman'])
-      parse._.should.eql(['robin'])
-    })
-
     it('handles "coercions" colliding with prototype', () => {
       const parse = parser(['--toString', '33'], {
         coerce: {
@@ -3847,79 +3642,6 @@ describe('yargs-parser', function () {
       boolean: 'infinite'
     })
     parse.infinite.should.equal(false)
-  })
-
-  // See: https://github.com/yargs/yargs/issues/1098,
-  // https://github.com/yargs/yargs/issues/1570
-  describe('array with nargs', () => {
-    it('allows array and nargs to be configured in conjunction, enforcing the nargs value', () => {
-      const parse = parser.detailed(['-a', 'apple', 'banana'], {
-        array: 'a',
-        narg: {
-          a: 1
-        }
-      })
-      expect(parse.error).to.be.null // eslint-disable-line
-      parse.argv.a.should.eql(['apple'])
-      parse.argv._.should.eql(['banana'])
-    })
-
-    // see; https://github.com/yargs/yargs/issues/1098
-    it('allows special NaN count to be provided to narg, to indicate one or more array values', () => {
-      const parse = parser.detailed(['-a', 'apple', 'banana'], {
-        array: 'a',
-        narg: {
-          a: NaN
-        }
-      })
-      expect(parse.error).to.be.null // eslint-disable-line
-      parse.argv.a.should.eql(['apple', 'banana'])
-    })
-
-    it('throws error if at least one value not provided for NaN', () => {
-      const parse = parser.detailed(['-a'], {
-        array: 'a',
-        narg: {
-          a: NaN
-        }
-      })
-      parse.error.message.should.match(/Not enough arguments/)
-    })
-
-    it('returns an error if not enough positionals were provided for nargs', () => {
-      const parse = parser.detailed(['-a', '33'], {
-        array: 'a',
-        narg: {
-          a: 2
-        }
-      })
-      parse.argv.a.should.eql([33])
-      parse.error.message.should.equal('Not enough arguments following: a')
-    })
-
-    it('returns an error if not enough positionals were provided for nargs even with nargs-eats-options', () => {
-      const parse = parser.detailed(['-a', '33', '--cat'], {
-        narg: {
-          a: 3
-        },
-        configuration: {
-          'nargs-eats-options': true
-        }
-      })
-      parse.error.message.should.equal('Not enough arguments following: a')
-    })
-
-    it('does not raise error if no arguments are provided for boolean option', () => {
-      const parse = parser.detailed(['-a'], {
-        array: 'a',
-        boolean: 'a',
-        narg: {
-          a: NaN
-        }
-      })
-      expect(parse.error).to.be.null // eslint-disable-line
-      parse.argv.a.should.eql([true])
-    })
   })
 
   describe('greedy-arrays=false', () => {

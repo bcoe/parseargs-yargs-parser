@@ -1,6 +1,6 @@
 import { parseArgs } from '@pkgjs/parseargs';
 
-// Take an un-split argv string and tokenize it.
+// Tokenize argv in string form into an argv array:
 export function tokenizeArgString(argString) {
   if (Array.isArray(argString)) {
     return argString.map((e) => (typeof e !== 'string' ? e + '' : e));
@@ -41,6 +41,13 @@ export function tokenizeArgString(argString) {
   return args;
 }
 
+function shouldCoerceNumber(value) {
+  // Handle numeric arguments:
+  return looksLikeNumber(value) && (
+    Number.isSafeInteger(Math.floor(parseFloat(`${value}`)))
+  );
+}
+
 function YargsParser(
   args,
   opts
@@ -56,17 +63,21 @@ YargsParser.detailed = function(
   opts
 ) {
   const configuration = {
-    'boolean-negation': false,
-    'camel-case-expansion': false,
-    'combine-arrays': false,
-    'dot-notation': false,
+    'boolean-negation': true,
+    'camel-case-expansion': true,
+    // Does not currently support config loaded from disk.
+    // 'combine-arrays': false,
+    'dot-notation': true,
     'duplicate-arguments-array': false,
     'flatten-duplicate-arrays': false,
-    'greedy-arrays': false,
+    // Greedy arrays, i.e., --foo a b, create painful parsing issues
+    // let's drop the feature:
+    // 'greedy-arrays': false,
     'halt-at-non-option': false,
-    'nargs-eats-options': false,
+    // Dropping nargs in favor of simplified 'multiples' implementation.
+    // 'nargs-eats-options': false,
     'negation-prefix': 'no',
-    'parse-positional-numbers': false,
+    'parse-positional-numbers': true,
     'parse-numbers': true,
     'populate--': false,
     'set-placeholder-key': false,
@@ -81,21 +92,39 @@ YargsParser.detailed = function(
   }
   const parsed = parseArgs(args, opts);
   const argv = {
-    _: parsed.positionals,
-    $0: '',
-    ...parsed.flags
+    _: [],
+    $0: ''
   };
+  // Process flags `--foo`, `--bar`:
+  for (const [key, value] of Object.entries(parsed.flags)) {
+    // Handle boolean negation:
+    const negationPrefix = `${configuration['negation-prefix']}-`;
+    if (configuration['boolean-negation'] && key.startsWith(negationPrefix)) {
+      argv[key.slice(negationPrefix.length)] = !value;
+    } else {
+      argv[key] = value;
+    }
+  }
+  // Process options with values:
   for (const [key, value] of Object.entries(parsed.values)) {
     if (value !== undefined) {
       let mungedValue = value;
-      const shouldCoerceNumber = looksLikeNumber(value) &&
-        configuration['parse-numbers'] && (
-        Number.isSafeInteger(Math.floor(parseFloat(`${value}`))));
-      if (shouldCoerceNumber) {
+      // Handle numeric arguments:
+      if (shouldCoerceNumber(value, configuration) &&
+        configuration['parse-numbers']) {
         mungedValue = Number(value);
       }
       argv[key] = mungedValue;
     }
+  }
+  // Process positionals:
+  for (const value of parsed.positionals) {
+    let mungedValue = value;
+    if (shouldCoerceNumber(value) &&
+      configuration['parse-positional-numbers']) {
+      mungedValue = Number(value);
+    }
+    argv._.push(mungedValue);
   }
   return {
     argv,
@@ -105,6 +134,7 @@ YargsParser.detailed = function(
     configuration
   };
 };
+
 YargsParser.camelCase = (str) => str;
 YargsParser.decamelize = (str, joinString) => str;
 function looksLikeNumber(x) {
